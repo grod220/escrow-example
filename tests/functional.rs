@@ -1,5 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
+use escrow::instruction::withdraw_tokens;
 use {
     escrow::{
         instruction::escrow_tokens,
@@ -8,7 +9,6 @@ use {
     mollusk_svm::{result::Check, Mollusk},
     solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey, rent::Rent},
 };
-use escrow::instruction::withdraw_tokens;
 
 const DECIMALS: u8 = 0;
 const SUPPLY: u64 = 500_000_000;
@@ -118,10 +118,20 @@ fn test_escrow_tokens() {
         ],
     );
 
+    // Assert token balance moved into escrow
     let resulting_escrow_token_account = escrow_result.get_account(&escrow_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_escrow_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, AMOUNT);
+
+    // Assert tokens left senders account
+    let resulting_sender_token_account = escrow_result.get_account(&sender_token_address).unwrap();
+    let unpacked_account_state =
+        spl_token::state::Account::unpack(&resulting_sender_token_account.data).unwrap();
+    assert_eq!(unpacked_account_state.amount, 0);
+
+    // Advance clock
+    mollusk.warp_to_slot(expiration_slot);
 
     let withdraw_result = mollusk.process_and_validate_instruction(
         &withdraw_tokens(
@@ -133,27 +143,20 @@ fn test_escrow_tokens() {
             &mint,
             &spl_token::id(),
         ),
-        &[
-            (sender, Account::default()),
-            (sender_token_address, sender_token_account),
-            (escrow, escrow_account),
-            (escrow_token_address, escrow_token_account),
-            (mint, mint_account),
-            mollusk_svm_programs_token::token::keyed_account(),
-        ],
-        &[
-            Check::success(),
-        ],
+        &escrow_result.resulting_accounts,
+        &[Check::success()],
     );
 
     // Assert token balance moved out of escrow
-    let resulting_escrow_token_account = withdraw_result.get_account(&escrow_token_address).unwrap();
+    let resulting_escrow_token_account =
+        withdraw_result.get_account(&escrow_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_escrow_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, 0);
 
     // And back into sender's account
-    let resulting_sender_token_account = withdraw_result.get_account(&sender_token_address).unwrap();
+    let resulting_sender_token_account =
+        withdraw_result.get_account(&sender_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_sender_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, AMOUNT);
