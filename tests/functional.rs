@@ -89,7 +89,7 @@ fn test_escrow_tokens() {
     }
     .pack();
 
-    let result = mollusk.process_and_validate_instruction(
+    let escrow_result = mollusk.process_and_validate_instruction(
         &escrow_tokens(
             &program_id,
             &sender,
@@ -103,10 +103,10 @@ fn test_escrow_tokens() {
         ),
         &[
             (sender, Account::default()),
-            (sender_token_address, sender_token_account),
-            (escrow, escrow_account),
-            (escrow_token_address, escrow_token_account),
-            (mint, mint_account),
+            (sender_token_address, sender_token_account.clone()),
+            (escrow, escrow_account.clone()),
+            (escrow_token_address, escrow_token_account.clone()),
+            (mint, mint_account.clone()),
             mollusk_svm_programs_token::token::keyed_account(),
         ],
         &[
@@ -118,39 +118,12 @@ fn test_escrow_tokens() {
         ],
     );
 
-    let resulting_escrow_token_account = result.get_account(&escrow_token_address).unwrap();
+    let resulting_escrow_token_account = escrow_result.get_account(&escrow_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_escrow_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, AMOUNT);
-}
 
-#[test]
-fn test_withdraw_tokens() {
-    let program_id = Pubkey::new_unique();
-
-    let sender = Pubkey::new_unique();
-    let sender_token_address = Pubkey::new_unique();
-    let escrow_token_address = Pubkey::new_unique();
-    let mint = Pubkey::new_unique();
-
-    let escrow = get_escrow_pda(&program_id, &mint, &sender).0;
-
-    let mut mollusk = Mollusk::new(&program_id, "escrow");
-    mollusk_svm_programs_token::token::add_program(&mut mollusk);
-
-    let rent = &mollusk.sysvars.rent;
-
-    let escrow_account = {
-        let space = std::mem::size_of::<Escrow>();
-        let lamports = mollusk.sysvars.rent.minimum_balance(space);
-        Account::new(lamports, space, &program_id)
-    };
-
-    let mint_account = setup_mint(rent);
-    let sender_token_account = setup_token_account(rent, &mint, &sender, AMOUNT);
-    let escrow_token_account = setup_token_account(rent, &mint, &escrow, 0);
-
-    let result = mollusk.process_and_validate_instruction(
+    let withdraw_result = mollusk.process_and_validate_instruction(
         &withdraw_tokens(
             &program_id,
             &sender,
@@ -174,13 +147,13 @@ fn test_withdraw_tokens() {
     );
 
     // Assert token balance moved out of escrow
-    let resulting_escrow_token_account = result.get_account(&escrow_token_address).unwrap();
+    let resulting_escrow_token_account = withdraw_result.get_account(&escrow_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_escrow_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, 0);
 
     // And back into sender's account
-    let resulting_sender_token_account = result.get_account(&sender_token_address).unwrap();
+    let resulting_sender_token_account = withdraw_result.get_account(&sender_token_address).unwrap();
     let unpacked_account_state =
         spl_token::state::Account::unpack(&resulting_sender_token_account.data).unwrap();
     assert_eq!(unpacked_account_state.amount, AMOUNT);
