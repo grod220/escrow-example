@@ -12,6 +12,7 @@ test-sbf = []
 [dependencies]
 solana-program = "2.1"
 spl-token = { version = "7.0.0", features = ["no-entrypoint"] }
+wasm-bindgen = "0.2.100"
 
 [dev-dependencies]
 mollusk-svm = "0.0.15"

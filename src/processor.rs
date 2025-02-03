@@ -19,6 +19,7 @@ use {
     },
     spl_token::instruction::transfer_checked,
 };
+use crate::state::EscrowPda;
 
 fn process_escrow(
     program_id: &Pubkey,
@@ -38,9 +39,12 @@ fn process_escrow(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let (escrow_pda, _) = get_escrow_pda(program_id, mint_account.key, sender.key);
+    let EscrowPda {
+        pubkey,
+        bump: _,
+    } = get_escrow_pda(program_id, mint_account.key, sender.key);
 
-    if escrow.key != &escrow_pda {
+    if escrow.key != &pubkey {
         return Err(ProgramError::InvalidSeeds);
     }
 
@@ -92,9 +96,12 @@ fn process_withdraw(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRes
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let (escrow_pda, bump_seed) = get_escrow_pda(program_id, mint_account.key, sender.key);
+    let EscrowPda {
+        pubkey,
+        bump,
+    } = get_escrow_pda(program_id, mint_account.key, sender.key);
 
-    if escrow.key != &escrow_pda {
+    if escrow.key != &pubkey {
         return Err(ProgramError::InvalidSeeds);
     }
 
@@ -120,7 +127,7 @@ fn process_withdraw(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramRes
         /* decimals */ 0,
     )?;
 
-    let bump_seed = &[bump_seed];
+    let bump_seed = &[bump];
     let signer_seeds = get_escrow_signer_seeds(mint_account.key, sender.key, bump_seed);
 
     invoke_signed(

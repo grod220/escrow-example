@@ -63,7 +63,7 @@ fn test_escrow_tokens() {
     let escrow_token_address = Pubkey::new_unique();
     let mint = Pubkey::new_unique();
 
-    let escrow = get_escrow_pda(&program_id, &mint, &sender).0;
+    let escrow = get_escrow_pda(&program_id, &mint, &sender).pubkey;
 
     let mut mollusk = Mollusk::new(&program_id, "escrow");
     mollusk_svm_programs_token::token::add_program(&mut mollusk);

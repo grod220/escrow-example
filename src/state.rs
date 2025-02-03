@@ -2,10 +2,24 @@
 
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 
-pub fn get_escrow_pda(program_id: &Pubkey, mint: &Pubkey, creator: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[b"escrow", mint.as_ref(), creator.as_ref()], program_id)
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub struct EscrowPda {
+    pub pubkey: Pubkey,
+    pub bump: u8,
 }
 
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub fn get_escrow_pda(program_id: &Pubkey, mint: &Pubkey, creator: &Pubkey) -> EscrowPda {
+    let (pubkey, bump) = Pubkey::find_program_address(&[b"escrow", mint.as_ref(), creator.as_ref()], program_id);
+    EscrowPda {
+        pubkey,
+        bump,
+    }
+}
 pub fn get_escrow_signer_seeds<'a>(
     mint: &'a Pubkey,
     creator: &'a Pubkey,
